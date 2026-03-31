@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarketLens — Financial Data Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;0,600;1,300&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161d;
+    --surface2: #1a1e28;
+    --surface3: #222633;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #7a7f94;
+    --accent: #4f9cf9;
+    --accent2: #7c5df9;
+    --green: #2dd4a0;
+    --red: #f96060;
+    --amber: #f9a840;
+    --font-head: 'Fraunces', serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; overflow-x: hidden; }
+
+  /* Layout */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 240px; min-width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Sidebar */
+  .brand { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+  .brand-logo { font-family: var(--font-head); font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+  .brand-logo span { color: var(--accent); }
+  .brand-sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+
+  .sidebar-section { padding: 14px 10px 8px; }
+  .sidebar-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 0 8px 8px; }
+  .company-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s; position: relative; }
+  .company-item:hover { background: var(--surface2); }
+  .company-item.active { background: var(--surface3); }
+  .company-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 60%; background: var(--accent); border-radius: 0 3px 3px 0; }
+  .ticker-badge { font-family: var(--font-mono); font-size: 11px; font-weight: 500; background: var(--surface3); padding: 3px 7px; border-radius: 5px; color: var(--accent); min-width: 52px; text-align: center; }
+  .company-name { font-size: 12px; color: var(--text); flex: 1; }
+  .company-return { font-family: var(--font-mono); font-size: 11px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+
+  .sidebar-footer { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* Top bar */
+  .topbar { padding: 18px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; background: var(--surface); }
+  .topbar-title { font-family: var(--font-head); font-size: 22px; font-weight: 300; }
+  .topbar-title strong { font-weight: 600; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .range-btn { font-family: var(--font-mono); font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .range-btn:hover { background: var(--surface2); color: var(--text); }
+  .range-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .divider { width: 1px; height: 20px; background: var(--border); }
+  .compare-btn { font-family: var(--font-mono); font-size: 12px; padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--accent2); cursor: pointer; transition: all 0.15s; }
+  .compare-btn:hover { background: rgba(124,93,249,0.1); }
+  .compare-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+  /* Content */
+  .content { padding: 24px 28px; flex: 1; }
+
+  /* Metric cards */
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; font-family: var(--font-mono); }
+  .metric-value { font-family: var(--font-head); font-size: 26px; font-weight: 300; letter-spacing: -1px; }
+  .metric-sub { font-size: 11px; margin-top: 4px; font-family: var(--font-mono); }
+
+  /* Chart section */
+  .chart-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-bottom: 24px; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-family: var(--font-mono); }
+  .chart-legend { display: flex; gap: 16px; font-size: 12px; font-family: var(--font-mono); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; height: 260px; }
+
+  /* Bottom row */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+  .panel-title { font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+
+  /* API Explorer */
+  .api-explorer { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-bottom: 24px; }
+  .api-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .api-tab { font-family: var(--font-mono); font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .api-tab:hover { background: var(--surface2); }
+  .api-tab.active { border-color: var(--green); color: var(--green); background: rgba(45,212,160,0.05); }
+  .method-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: rgba(79,156,249,0.12); color: var(--accent); font-family: var(--font-mono); font-weight: 500; margin-right: 8px; }
+  .endpoint-url { font-family: var(--font-mono); font-size: 13px; color: var(--text); background: var(--surface2); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .run-btn { font-size: 11px; font-family: var(--font-mono); padding: 4px 12px; border-radius: 5px; border: 1px solid var(--accent); background: rgba(79,156,249,0.08); color: var(--accent); cursor: pointer; transition: all 0.15s; }
+  .run-btn:hover { background: var(--accent); color: #fff; }
+  .api-output { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; max-height: 200px; overflow-y: auto; color: #7dd3fc; white-space: pre; }
+  .json-key { color: #c084fc; }
+  .json-str { color: #86efac; }
+  .json-num { color: #fb923c; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+  .data-table th:first-child { text-align: left; }
+  .data-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: right; font-family: var(--font-mono); color: var(--text); }
+  .data-table td:first-child { text-align: left; color: var(--muted); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .spark { display: inline-block; width: 48px; height: 18px; }
+
+  /* Gainers/Losers */
+  .gl-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .gl-row:last-child { border-bottom: none; }
+  .gl-ticker { font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--accent); min-width: 40px; }
+  .gl-name { font-size: 12px; color: var(--muted); flex: 1; margin-left: 8px; }
+  .gl-val { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+  .gl-bar { height: 4px; border-radius: 2px; margin-top: 3px; }
+
+  /* Compare overlay */
+  .compare-select { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+  .compare-select select { font-family: var(--font-mono); font-size: 12px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  .compare-info { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* Volatility widget */
+  .vol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vol-item { background: var(--surface2); border-radius: 8px; padding: 12px; border: 1px solid var(--border); }
+  .vol-name { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-family: var(--font-mono); }
+  .vol-score { font-family: var(--font-head); font-size: 22px; font-weight: 300; }
+  .vol-label { font-size: 11px; font-family: var(--font-mono); margin-top: 3px; }
+  .vol-bar-wrap { height: 4px; background: var(--surface3); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .vol-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+
+  /* ML Prediction badge */
+  .pred-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--font-mono); padding: 4px 10px; border-radius: 5px; background: rgba(124,93,249,0.12); border: 1px solid rgba(124,93,249,0.25); color: var(--accent2); }
+
+  /* Sentiment */
+  .sentiment-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .sentiment-row:last-child { border-bottom: none; }
+  .sent-ticker { font-family: var(--font-mono); font-size: 12px; color: var(--accent); min-width: 40px; }
+  .sent-bar-wrap { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
+  .sent-bar { height: 100%; border-radius: 4px; transition: width 0.8s; }
+  .sent-score { font-family: var(--font-mono); font-size: 12px; min-width: 36px; text-align: right; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 650px) {
+    .sidebar { width: 200px; min-width: 200px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+    .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .metric-card, .chart-section, .api-explorer, .panel { animation: fadeIn 0.3s ease both; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo">Market<span>Lens</span></div>
+    <div class="brand-sub">NSE/BSE · Live Sim</div>
+  </div>
+
+  <div class="sidebar-section" style="flex:1; overflow-y:auto;">
+    <div class="sidebar-label">Companies</div>
+    <div id="company-list"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    Data: Mock + yfinance<br>
+    Updated: <span id="update-time"></span>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="company-heading">Select a company</div>
+      <div style="font-size:12px; color:var(--muted); font-family:var(--font-mono); margin-top:2px;" id="company-sector"></div>
+    </div>
+    <div class="controls">
+      <button class="range-btn active" onclick="setRange(30, this)">30D</button>
+      <button class="range-btn" onclick="setRange(90, this)">90D</button>
+      <button class="range-btn" onclick="setRange(180, this)">180D</button>
+      <button class="range-btn" onclick="setRange(365, this)">1Y</button>
+      <div class="divider"></div>
+      <button class="compare-btn" id="compare-toggle" onclick="toggleCompare()">⇄ Compare</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card" style="animation-delay:0s">
+        <div class="metric-label">Current Price</div>
+        <div class="metric-value" id="m-price">—</div>
+        <div class="metric-sub" id="m-change">—</div>
+      </div>
+      <div class="metric-card" style="animation-delay:0.05s">
+        <div class="metric-label">52W High</div>
+        <div class="metric-value pos" id="m-high">—</div>
+        <div class="metric-sub" id="m-high-date" style="color:var(--muted)">—</div>
+      </div>
+      <div class="metric-card" style="animation-delay:0.1s">
+        <div class="metric-label">52W Low</div>
+        <div class="metric-value neg" id="m-low">—</div>
+        <div class="metric-sub" id="m-low-date" style="color:var(--muted)">—</div>
+      </div>
+      <div class="metric-card" style="animation-delay:0.15s">
+        <div class="metric-label">Avg Close (52W)</div>
+        <div class="metric-value" id="m-avg">—</div>
+        <div class="metric-sub" id="m-vol" style="color:var(--muted)">—</div>
+      </div>
+    </div>
+
+    <!-- Compare select (hidden by default) -->
+    <div id="compare-panel" style="display:none; margin-bottom:16px;">
+      <div class="compare-select">
+        <span class="compare-info">Compare with:</span>
+        <select id="compare-sym" onchange="renderChart()"></select>
+        <span class="compare-info" id="corr-info"></span>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-section" style="animation-delay:0.2s">
+      <div class="chart-header">
+        <div class="chart-title" id="chart-title">Closing Price · 7-day MA</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4f9cf9"></div><span style="color:var(--muted)">Close</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f9a840"></div><span style="color:var(--muted)">7D MA</span></div>
+          <div class="legend-item" id="pred-legend" style="display:none"><div class="legend-dot" style="background:#7c5df9"></div><span style="color:var(--muted)">Forecast</span></div>
+          <div class="pred-badge" id="ml-badge" style="display:none; margin-left:8px">&#9650; ML Linear Forecast</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+    </div>
+
+    <!-- Daily Return Chart -->
+    <div class="chart-section" style="animation-delay:0.25s">
+      <div class="chart-header">
+        <div class="chart-title">Daily Return %</div>
+        <div style="font-size:11px; font-family:var(--font-mono); color:var(--muted)">= (Close − Open) / Open × 100</div>
+      </div>
+      <div class="chart-wrap" style="height:160px"><canvas id="returnChart"></canvas></div>
+    </div>
+
+    <!-- API Explorer -->
+    <div class="api-explorer" style="animation-delay:0.3s">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div class="panel-title" style="margin:0">REST API Explorer</div>
+        <div style="font-size:11px; font-family:var(--font-mono); color:var(--muted); background:rgba(45,212,160,0.08); border:1px solid rgba(45,212,160,0.2); color:var(--green); padding:3px 10px; border-radius:5px;">FastAPI / Swagger</div>
+      </div>
+      <div class="api-tabs" id="api-tabs"></div>
+      <div class="endpoint-url" id="api-url">
+        <span id="api-url-text"></span>
+        <button class="run-btn" onclick="runApi()">▶ Run</button>
+      </div>
+      <div class="api-output" id="api-output">// Click "Run" to simulate an API response</div>
+    </div>
+
+    <!-- Bottom panels -->
+    <div class="bottom-grid">
+      <!-- Recent Data Table -->
+      <div class="panel" style="animation-delay:0.35s">
+        <div class="panel-title">Last 10 Days — Raw Data</div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="raw-table">
+            <thead><tr>
+              <th>Date</th><th>Open</th><th>Close</th><th>Return%</th><th>7D MA</th>
+            </tr></thead>
+            <tbody id="raw-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Top Gainers / Losers -->
+      <div class="panel" style="animation-delay:0.4s">
+        <div class="panel-title">Top Gainers / Losers (30D)</div>
+        <div id="gainers-panel"></div>
+      </div>
+    </div>
+
+    <!-- Second bottom row -->
+    <div class="bottom-grid" style="margin-top:14px">
+      <!-- Volatility -->
+      <div class="panel" style="animation-delay:0.45s">
+        <div class="panel-title">Volatility Score (Custom Metric)</div>
+        <div class="vol-grid" id="vol-grid"></div>
+      </div>
+
+      <!-- Sentiment -->
+      <div class="panel" style="animation-delay:0.5s">
+        <div class="panel-title">Mock Sentiment Index</div>
+        <div id="sentiment-panel"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<script>
+// ─── DATA ENGINE ──────────────────────────────────────────────────────────────
+const COMPANIES = [
+  { sym: 'RELIANCE', name: 'Reliance Industries', sector: 'Energy / Conglomerate', base: 2850, vol: 0.018 },
+  { sym: 'TCS',      name: 'Tata Consultancy Services', sector: 'Information Technology', base: 3960, vol: 0.013 },
+  { sym: 'INFY',     name: 'Infosys Ltd', sector: 'Information Technology', base: 1780, vol: 0.016 },
+  { sym: 'HDFCBANK', name: 'HDFC Bank', sector: 'Banking & Finance', base: 1680, vol: 0.015 },
+  { sym: 'WIPRO',    name: 'Wipro Ltd', sector: 'Information Technology', base: 520, vol: 0.019 },
+  { sym: 'ITC',      name: 'ITC Ltd', sector: 'FMCG & Tobacco', base: 465, vol: 0.012 },
+  { sym: 'BAJFINANCE', name: 'Bajaj Finance', sector: 'NBFC', base: 7100, vol: 0.022 },
+  { sym: 'HINDUNILVR', name: 'Hindustan Unilever', sector: 'FMCG', base: 2400, vol: 0.011 },
+];
+
+// Seeded PRNG for reproducible mock data
+function seededRand(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+function generateStockData(company, days = 365) {
+  const rand = seededRand(company.sym.charCodeAt(0) * 997 + company.sym.charCodeAt(1));
+  const data = [];
+  let price = company.base;
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+    const drift = 0.0003;
+    const shock = (rand() - 0.48) * company.vol;
+    const open = price;
+    price = price * (1 + drift + shock);
+    const high = price * (1 + rand() * 0.008);
+    const low = price * (1 - rand() * 0.008);
+    const close = price;
+    const vol = Math.floor(1e6 + rand() * 5e6);
+    data.push({
+      date: d.toISOString().slice(0, 10),
+      open: +open.toFixed(2),
+      high: +high.toFixed(2),
+      low: +low.toFixed(2),
+      close: +close.toFixed(2),
+      volume: vol,
+      daily_return: +((close - open) / open * 100).toFixed(4),
+    });
+  }
+  // Add 7-day moving average
+  for (let i = 0; i < data.length; i++) {
+    const window = data.slice(Math.max(0, i - 6), i + 1).map(d => d.close);
+    data[i].ma7 = +(window.reduce((a, b) => a + b, 0) / window.length).toFixed(2);
+  }
+  return data;
+}
+
+// Pre-generate all data
+const DB = {};
+COMPANIES.forEach(c => { DB[c.sym] = generateStockData(c); });
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let currentSym = 'TCS';
+let currentRange = 30;
+let compareMode = false;
+let compareSym = 'INFY';
+let priceChart = null;
+let returnChart = null;
+
+// ─── API ENDPOINTS ────────────────────────────────────────────────────────────
+const API_ENDPOINTS = [
+  { id: 'companies', label: 'GET /companies', method: 'GET', url: '/companies', desc: 'All companies' },
+  { id: 'data',      label: 'GET /data/{symbol}', method: 'GET', url: null, desc: 'Last 30 days' },
+  { id: 'summary',   label: 'GET /summary/{symbol}', method: 'GET', url: null, desc: '52W metrics' },
+  { id: 'compare',   label: 'GET /compare', method: 'GET', url: null, desc: 'Compare two stocks' },
+  { id: 'volatility',label: 'GET /volatility/{symbol}', method: 'GET', url: null, desc: 'Volatility score' },
+  { id: 'sentiment', label: 'GET /sentiment', method: 'GET', url: '/sentiment', desc: 'Sentiment index' },
+];
+let activeApiTab = 'companies';
+
+function getApiUrl(id) {
+  const sym = currentSym;
+  const map = {
+    companies: '/companies',
+    data: `/data/${sym}?limit=30`,
+    summary: `/summary/${sym}`,
+    compare: `/compare?symbol1=${sym}&symbol2=${compareSym}`,
+    volatility: `/volatility/${sym}`,
+    sentiment: '/sentiment',
+  };
+  return 'http://localhost:8000' + (map[id] || '/');
+}
+
+function buildApiResponse(id) {
+  const sym = currentSym;
+  const comp = COMPANIES.find(c => c.sym === sym);
+  const data = DB[sym];
+  const last30 = data.slice(-30);
+  const closes = data.map(d => d.close);
+  const high52 = Math.max(...closes);
+  const low52 = Math.min(...closes);
+  const avg52 = +(closes.reduce((a, b) => a + b, 0) / closes.length).toFixed(2);
+
+  const responses = {
+    companies: {
+      status: 'ok',
+      count: COMPANIES.length,
+      data: COMPANIES.map(c => ({
+        symbol: c.sym, name: c.name, sector: c.sector,
+        current_price: DB[c.sym].at(-1).close,
+      }))
+    },
+    data: {
+      status: 'ok',
+      symbol: sym,
+      count: last30.length,
+      data: last30.slice(-5).map(d => ({
+        date: d.date, open: d.open, close: d.close,
+        daily_return_pct: d.daily_return, ma_7d: d.ma7,
+      }))
+    },
+    summary: {
+      status: 'ok',
+      symbol: sym,
+      company: comp.name,
+      week52_high: high52,
+      week52_low: low52,
+      avg_close_52w: avg52,
+      current_price: closes.at(-1),
+      distance_from_high_pct: +((closes.at(-1) - high52) / high52 * 100).toFixed(2),
+    },
+    compare: (() => {
+      const d2 = DB[compareSym];
+      const r1 = (data.at(-1).close - data.at(-30).close) / data.at(-30).close * 100;
+      const r2 = (d2.at(-1).close - d2.at(-30).close) / d2.at(-30).close * 100;
+      const c1 = data.slice(-30).map(d => d.close);
+      const c2 = d2.slice(-30).map(d => d.close);
+      const mu1 = c1.reduce((a,b)=>a+b,0)/c1.length;
+      const mu2 = c2.reduce((a,b)=>a+b,0)/c2.length;
+      const cov = c1.reduce((s,v,i)=>s+(v-mu1)*(c2[i]-mu2),0)/c1.length;
+      const sd1 = Math.sqrt(c1.reduce((s,v)=>s+(v-mu1)**2,0)/c1.length);
+      const sd2 = Math.sqrt(c2.reduce((s,v)=>s+(v-mu2)**2,0)/c2.length);
+      const corr = +(cov/(sd1*sd2)).toFixed(4);
+      return {
+        status: 'ok',
+        symbol1: sym, symbol2: compareSym,
+        return_30d: { [sym]: +r1.toFixed(2), [compareSym]: +r2.toFixed(2) },
+        correlation_30d: corr,
+        winner: r1 > r2 ? sym : compareSym,
+      };
+    })(),
+    volatility: {
+      status: 'ok',
+      symbol: sym,
+      volatility_score: +(comp.vol * 100).toFixed(2),
+      annualized_vol_pct: +(comp.vol * Math.sqrt(252) * 100).toFixed(2),
+      rating: comp.vol < 0.013 ? 'Low' : comp.vol < 0.018 ? 'Medium' : 'High',
+    },
+    sentiment: {
+      status: 'ok',
+      generated_at: new Date().toISOString(),
+      index: COMPANIES.map(c => {
+        const d = DB[c.sym];
+        const ret = (d.at(-1).close - d.at(-7).close) / d.at(-7).close;
+        const score = Math.min(100, Math.max(0, Math.round(50 + ret * 800)));
+        return { symbol: c.sym, sentiment_score: score, label: score > 60 ? 'Bullish' : score < 40 ? 'Bearish' : 'Neutral' };
+      })
+    }
+  };
+  return responses[id] || { status: 'ok' };
+}
+
+function syntaxHighlight(json) {
+  const str = JSON.stringify(json, null, 2);
+  return str
+    .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+    .replace(/: "([^"]+)"/g, ': <span class="json-str">"$1"</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  document.getElementById('update-time').textContent = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+
+  // Build sidebar
+  const list = document.getElementById('company-list');
+  COMPANIES.forEach(c => {
+    const d = DB[c.sym];
+    const ret30 = (d.at(-1).close - d.at(-30).close) / d.at(-30).close * 100;
+    const item = document.createElement('div');
+    item.className = 'company-item' + (c.sym === currentSym ? ' active' : '');
+    item.dataset.sym = c.sym;
+    item.innerHTML = `
+      <div class="ticker-badge">${c.sym.slice(0,4)}</div>
+      <div class="company-name">${c.name.split(' ')[0]}</div>
+      <div class="company-return ${ret30 >= 0 ? 'pos' : 'neg'}">${ret30 >= 0 ? '+' : ''}${ret30.toFixed(1)}%</div>`;
+    item.onclick = () => selectCompany(c.sym);
+    list.appendChild(item);
+  });
+
+  // Build API tabs
+  const tabs = document.getElementById('api-tabs');
+  API_ENDPOINTS.forEach(ep => {
+    const btn = document.createElement('button');
+    btn.className = 'api-tab' + (ep.id === activeApiTab ? ' active' : '');
+    btn.textContent = ep.label;
+    btn.dataset.id = ep.id;
+    btn.onclick = () => selectApiTab(ep.id);
+    tabs.appendChild(btn);
+  });
+
+  // Compare select
+  const sel = document.getElementById('compare-sym');
+  COMPANIES.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.sym; opt.textContent = `${c.sym} — ${c.name.split(' ')[0]}`;
+    if (c.sym === compareSym) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  updateApiDisplay();
+  renderGainersLosers();
+  renderVolatility();
+  renderSentiment();
+  selectCompany(currentSym);
+}
+
+function selectCompany(sym) {
+  currentSym = sym;
+  document.querySelectorAll('.company-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.sym === sym);
+  });
+  const c = COMPANIES.find(x => x.sym === sym);
+  document.getElementById('company-heading').innerHTML = `<strong>${sym}</strong> — ${c.name}`;
+  document.getElementById('company-sector').textContent = c.sector;
+  updateMetrics();
+  renderChart();
+  renderReturnChart();
+  renderTable();
+  updateApiDisplay();
+}
+
+function setRange(days, btn) {
+  currentRange = days;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+  renderReturnChart();
+  renderTable();
+}
+
+function toggleCompare() {
+  compareMode = !compareMode;
+  document.getElementById('compare-toggle').classList.toggle('active', compareMode);
+  document.getElementById('compare-panel').style.display = compareMode ? 'block' : 'none';
+  document.getElementById('pred-legend').style.display = compareMode ? 'none' : 'none';
+  document.getElementById('ml-badge').style.display = compareMode ? 'none' : 'flex';
+  renderChart();
+}
+
+function selectApiTab(id) {
+  activeApiTab = id;
+  document.querySelectorAll('.api-tab').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+  updateApiDisplay();
+}
+
+function updateApiDisplay() {
+  document.getElementById('api-url-text').textContent = getApiUrl(activeApiTab);
+  document.getElementById('api-output').innerHTML = '// Click ▶ Run to simulate response';
+}
+
+function runApi() {
+  const resp = buildApiResponse(activeApiTab);
+  document.getElementById('api-output').innerHTML = syntaxHighlight(resp);
+  if (activeApiTab === 'compare') {
+    const r = resp;
+    document.getElementById('corr-info').textContent = `Correlation: ${r.correlation_30d}`;
+  }
+}
+
+// ─── METRICS ──────────────────────────────────────────────────────────────────
+function updateMetrics() {
+  const data = DB[currentSym];
+  const closes = data.map(d => d.close);
+  const latest = data.at(-1);
+  const prev = data.at(-2);
+  const chg = ((latest.close - prev.close) / prev.close * 100);
+  const high52 = Math.max(...closes);
+  const low52 = Math.min(...closes);
+  const avg52 = closes.reduce((a, b) => a + b, 0) / closes.length;
+  const highDate = data[closes.indexOf(high52)].date;
+  const lowDate = data[closes.indexOf(low52)].date;
+  const comp = COMPANIES.find(c => c.sym === currentSym);
+  const volScore = (comp.vol * Math.sqrt(252) * 100).toFixed(1);
+
+  document.getElementById('m-price').textContent = '₹' + latest.close.toFixed(2);
+  document.getElementById('m-change').innerHTML = `<span class="${chg >= 0 ? 'pos' : 'neg'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% today</span>`;
+  document.getElementById('m-high').textContent = '₹' + high52.toFixed(2);
+  document.getElementById('m-high-date').textContent = highDate;
+  document.getElementById('m-low').textContent = '₹' + low52.toFixed(2);
+  document.getElementById('m-low-date').textContent = lowDate;
+  document.getElementById('m-avg').textContent = '₹' + avg52.toFixed(2);
+  document.getElementById('m-vol').textContent = `Ann. Vol: ${volScore}%`;
+}
+
+// ─── CHARTS ───────────────────────────────────────────────────────────────────
+function getSlice(sym) {
+  return DB[sym].slice(-currentRange);
+}
+
+function linearForecast(prices, steps = 7) {
+  const n = prices.length;
+  const xs = Array.from({length: n}, (_, i) => i);
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = prices.reduce((a, b) => a + b, 0) / n;
+  const num = xs.reduce((s, x, i) => s + (x - mx) * (prices[i] - my), 0);
+  const den = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+  const slope = num / den;
+  const intercept = my - slope * mx;
+  return Array.from({length: steps}, (_, i) => +(intercept + slope * (n + i)).toFixed(2));
+}
+
+function renderChart() {
+  const slice = getSlice(currentSym);
+  const labels = slice.map(d => d.date.slice(5));
+  const closes = slice.map(d => d.close);
+  const ma7 = slice.map(d => d.ma7);
+
+  let datasets = [
+    {
+      label: currentSym + ' Close',
+      data: closes,
+      borderColor: '#4f9cf9',
+      backgroundColor: 'rgba(79,156,249,0.07)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+    },
+    {
+      label: '7D MA',
+      data: ma7,
+      borderColor: '#f9a840',
+      borderWidth: 1.5,
+      borderDash: [4, 3],
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+    }
+  ];
+
+  if (compareMode) {
+    compareSym = document.getElementById('compare-sym').value;
+    const s2 = getSlice(compareSym);
+    const c2 = s2.map(d => d.close);
+    datasets.push({
+      label: compareSym + ' Close',
+      data: c2,
+      borderColor: '#7c5df9',
+      backgroundColor: 'rgba(124,93,249,0.05)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      yAxisID: 'y2',
+    });
+  } else {
+    // ML forecast
+    const forecast = linearForecast(closes);
+    const forecastLabels = Array.from({length: 7}, (_, i) => `+${i+1}d`);
+    const allLabels = [...labels, ...forecastLabels];
+    const forecastData = [...Array(closes.length).fill(null), ...forecast];
+    datasets.push({
+      label: 'Forecast',
+      data: forecastData,
+      borderColor: '#7c5df9',
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      fill: false,
+      tension: 0,
+      pointRadius: 0,
+    });
+    // Update labels
+    if (!compareMode) {
+      document.getElementById('ml-badge').style.display = 'inline-flex';
+      document.getElementById('pred-legend').style.display = 'flex';
+    }
+  }
+
+  if (priceChart) priceChart.destroy();
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const allLabels = compareMode ? labels : [...labels, ...Array(7).fill('').map((_, i) => `+${i+1}d`)];
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: allLabels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1a1e28',
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1,
+        titleColor: '#7a7f94',
+        bodyColor: '#e8eaf0',
+        padding: 10,
+        callbacks: {
+          label: ctx => ` ₹${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) : '—'}`
+        }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a7f94', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a7f94', font: { family: 'DM Mono', size: 10 }, callback: v => '₹' + v.toFixed(0) }, position: 'left' },
+        ...(compareMode ? { y2: { grid: { display: false }, ticks: { color: '#7c5df9', font: { family: 'DM Mono', size: 10 }, callback: v => '₹' + v.toFixed(0) }, position: 'right' } } : {}),
+      }
+    }
+  });
+}
+
+function renderReturnChart() {
+  const slice = getSlice(currentSym);
+  const labels = slice.map(d => d.date.slice(5));
+  const returns = slice.map(d => d.daily_return);
+  const colors = returns.map(r => r >= 0 ? 'rgba(45,212,160,0.75)' : 'rgba(249,96,96,0.75)');
+
+  if (returnChart) returnChart.destroy();
+  const ctx = document.getElementById('returnChart').getContext('2d');
+  returnChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Daily Return %', data: returns, backgroundColor: colors, borderRadius: 2 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+        titleColor: '#7a7f94', bodyColor: '#e8eaf0',
+        callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(3)}%` }
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#7a7f94', font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a7f94', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(1) + '%' } }
+      }
+    }
+  });
+}
+
+// ─── TABLE ────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const slice = DB[currentSym].slice(-10);
+  const tbody = document.getElementById('raw-tbody');
+  tbody.innerHTML = '';
+  [...slice].reverse().forEach(d => {
+    const ret = d.daily_return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d.date.slice(5)}</td>
+      <td>₹${d.open.toFixed(2)}</td>
+      <td>₹${d.close.toFixed(2)}</td>
+      <td class="${ret >= 0 ? 'pos' : 'neg'}">${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%</td>
+      <td>₹${d.ma7.toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── GAINERS / LOSERS ─────────────────────────────────────────────────────────
+function renderGainersLosers() {
+  const panel = document.getElementById('gainers-panel');
+  const perf = COMPANIES.map(c => {
+    const d = DB[c.sym];
+    const ret = (d.at(-1).close - d.at(-30).close) / d.at(-30).close * 100;
+    return { sym: c.sym, name: c.name.split(' ')[0], ret };
+  }).sort((a, b) => b.ret - a.ret);
+
+  const maxAbs = Math.max(...perf.map(p => Math.abs(p.ret)));
+  panel.innerHTML = perf.map(p => `
+    <div class="gl-row">
+      <div class="gl-ticker">${p.sym.slice(0,4)}</div>
+      <div class="gl-name">${p.name}</div>
+      <div>
+        <div class="gl-val ${p.ret >= 0 ? 'pos' : 'neg'}">${p.ret >= 0 ? '+' : ''}${p.ret.toFixed(2)}%</div>
+        <div class="gl-bar" style="width:${Math.abs(p.ret)/maxAbs*80}px; background:${p.ret >= 0 ? 'var(--green)' : 'var(--red)'}; opacity:0.5"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── VOLATILITY ───────────────────────────────────────────────────────────────
+function renderVolatility() {
+  const grid = document.getElementById('vol-grid');
+  const items = COMPANIES.slice(0, 4).map(c => {
+    const annVol = c.vol * Math.sqrt(252) * 100;
+    const rating = annVol < 18 ? 'Low' : annVol < 25 ? 'Medium' : 'High';
+    const ratingColor = annVol < 18 ? 'var(--green)' : annVol < 25 ? 'var(--amber)' : 'var(--red)';
+    const pct = Math.min(100, annVol / 45 * 100);
+    return `<div class="vol-item">
+      <div class="vol-name">${c.sym}</div>
+      <div class="vol-score">${annVol.toFixed(1)}<span style="font-size:14px; color:var(--muted)">%</span></div>
+      <div class="vol-label" style="color:${ratingColor}">${rating}</div>
+      <div class="vol-bar-wrap"><div class="vol-bar-fill" style="width:${pct}%; background:${ratingColor}; opacity:0.7"></div></div>
+    </div>`;
+  });
+  grid.innerHTML = items.join('');
+}
+
+// ─── SENTIMENT ────────────────────────────────────────────────────────────────
+function renderSentiment() {
+  const panel = document.getElementById('sentiment-panel');
+  const items = COMPANIES.map(c => {
+    const d = DB[c.sym];
+    const ret = (d.at(-1).close - d.at(-7).close) / d.at(-7).close;
+    const score = Math.min(100, Math.max(0, Math.round(50 + ret * 800)));
+    const color = score > 60 ? 'var(--green)' : score < 40 ? 'var(--red)' : 'var(--amber)';
+    const label = score > 60 ? 'Bullish' : score < 40 ? 'Bearish' : 'Neutral';
+    return `<div class="sentiment-row">
+      <div class="sent-ticker">${c.sym.slice(0,4)}</div>
+      <div class="sent-bar-wrap"><div class="sent-bar" style="width:${score}%; background:${color}; opacity:0.7"></div></div>
+      <div class="sent-score" style="color:${color}">${score}</div>
+    </div>`;
+  });
+  panel.innerHTML = items.join('');
+}
+
+init();
+</script>
+</body>
+</html>
